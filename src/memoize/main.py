@@ -40,7 +40,6 @@ def memoize(stub: Optional[str] = None,
             key = _make_key(func.__name__, args, kwargs)
             # Check for a cached result
             if os.path.isfile(fp) and not kwargs.get('_memoize_force_refresh'):
-                start = time.time()
                 with open(fp, 'rb') as f:
                     try:
                         cache = json.load(f)
@@ -50,20 +49,17 @@ def memoize(stub: Optional[str] = None,
                         else:
                             raise
                 if not isinstance(cache, dict):
-                    breakpoint()
                     raise TypeError(f"Cache at {fp=} could not be deserialized to dictionary")
                 if key in cache:
+                    log_func(f"Using cached call with {key=}")
                     return cache[key]
-                log_func(f"read from cache took {(time.time() - start):0.2f} seconds")
             
             # Else run the function and store cached result
             result = func(*args, **kwargs)
-            start = time.time()
             cache[key] = result
             with open(fp, 'w') as f:
                 text = json.dumps(cache)
                 f.write(text)
-            log_func(f"write to cache took {(time.time() - start):0.2f} seconds")
             return result
         return memoize_dec
     return add_memoize_dec
