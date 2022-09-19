@@ -51,7 +51,7 @@ def memoize(stub: Optional[str] = None,
                 if not isinstance(cache, dict):
                     raise TypeError(f"Cache at {fp=} could not be deserialized to dictionary")
                 if key in cache:
-                    log_func(f"Using cached call with {key=}")
+                    log_func(f"Using cached call withe{key=}")
                     return cache[key]
             
             # Else run the function and store cached result

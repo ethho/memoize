@@ -1,6 +1,7 @@
 # memoize.py
 
-This repo contains a single decorator factory `memoize` that stores its cache as a flat JSON file.
+This repo contains a single decorator factory `memoize` that manages a local file cache of function results.
+The cache is stored as a JSON file.
 
 ## Quick Start
 
@@ -15,14 +16,15 @@ By default, `memoize` stores its cache in `/tmp/memoize/<date>.json`, but this c
 from memoize import memoize
 from functools import lru_cache
 
+
+@lru_cache() # Optionally, use with LRU cache to also cache in RAM
 # All are optional kwargs
 @memoize(stub='my_cache',               # file stub override
-		 cache_dir='/tmp/my_cache_dir', # cache directory override
-	  	 log_func=logger.info           # logging function override, print by default
-		 ignore_invalid=True)           # ignore cache if not JSON serializable
-@lru_cache() # Optionally, use with LRU cache for in memory caching
+         cache_dir='/tmp/my_cache_dir', # cache directory override
+         log_func=logger.info           # logging function override, print by default
+         ignore_invalid=True)           # ignore cache if not JSON serializable
 def my_func(s: str, b: bool = True, opt=None):
-	return {"s": s, "b": b, "opt": opt}
+    return {"s": s, "b": b, "opt": opt}
 ```
 
 ## License
