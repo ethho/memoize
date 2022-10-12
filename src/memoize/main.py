@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import re
 import hashlib
 from datetime import date
 from typing import List, Dict, Optional, Callable
@@ -18,6 +19,10 @@ def _make_key(func_name: str, args: List, kwargs: Dict) -> str:
     return hl.hexdigest()
 
 
+def _clean_func_name(fname: str) -> str:
+    return re.sub(r'[^a-zA-Z0-9_\-]', '', fname)
+
+
 def memoize(stub: Optional[str] = None,
             cache_dir: Optional[str] = '/tmp/memoize',
             ext: str = 'json',
@@ -30,10 +35,11 @@ def memoize(stub: Optional[str] = None,
     else:
         os.makedirs(cache_dir)
     stub = stub if stub else date.today().strftime('%Y%m%d') 
-    fp = os.path.join(cache_dir, f"{stub}.{ext}")
 
     def add_memoize_dec(func):
-        log_func(f"Using cache {fp=} for function {func.__name__}")
+        funcname = _clean_func_name(func.__name__)
+        fp = os.path.join(cache_dir, f"{funcname}_{stub}.{ext}")
+        log_func(f"Using cache {fp=} for function {funcname}")
         @wraps(func)
         def memoize_dec(*args, **kwargs):
             cache = dict()
@@ -51,7 +57,7 @@ def memoize(stub: Optional[str] = None,
                 if not isinstance(cache, dict):
                     raise TypeError(f"Cache at {fp=} could not be deserialized to dictionary")
                 if key in cache:
-                    log_func(f"Using cached call withe{key=}")
+                    log_func(f"Using cached call with {key=}")
                     return cache[key]
             
             # Else run the function and store cached result
