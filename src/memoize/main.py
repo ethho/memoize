@@ -77,7 +77,7 @@ def memoize(stub: Optional[str] = None,
             ext: str = 'json',
             log_func: Callable = print,
             ignore_invalid: bool = True,
-            cache_lifetime_days: int = None) -> Callable:
+            cache_lifetime_days: int = 0) -> Callable:
     """
     Cache results of this function to the file `{cache_dir}/{funcname}_{stub}.{ext}`.
     Read cache entries up to `cache_lifetime_days` days ago if specified; setting
