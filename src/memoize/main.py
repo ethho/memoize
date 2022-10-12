@@ -2,8 +2,9 @@ import os
 import json
 import time
 import re
+from glob import glob
 import hashlib
-from datetime import date
+from datetime import date, datetime, timedelta
 from typing import List, Dict, Optional, Callable
 from functools import wraps
 
@@ -23,11 +24,65 @@ def _clean_func_name(fname: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_\-]', '', fname)
 
 
+def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
+    """
+    Globs for files in `query` that are <= `cache_lifetime_days` old.
+    Returns list of paths sorted in order of most recent to least recent.
+    """
+    if cache_lifetime_days is None:
+        cache_lifetime_days = -1
+    re_query = query.replace('*', '(\d{8})')
+    dt_grps = list()
+    for glob_match in glob(query):
+        match = re.match(re_query, glob_match)
+        if not match:
+            continue
+        try:
+            item = {
+                'fp': glob_match,
+                'dt': datetime.strptime(match.groups()[0], '%Y%m%d').date(),
+            }
+        except Exception as err:
+            raise
+        dt_grps.append(item)
+    
+    fps = [
+        file['fp'] for file in
+        # Sort filepaths starting with most recent
+        sorted(dt_grps, key=(lambda x: x['dt']), reverse=True)
+        # Only include files timestamped less than cache_lifetime_days ago
+        if ((date.today() - file['dt']) <= timedelta(days=cache_lifetime_days)
+            or cache_lifetime_days < 0)
+    ]
+    return fps
+
+
+def _read_cache(fp: str, ignore_invalid: bool = True):
+    cache = dict()
+    try:
+        with open(fp, 'rb') as f:
+            cache = json.load(f)
+    except json.decoder.JSONDecodeError as err:
+        if ignore_invalid:
+            cache = dict()
+        else:
+            raise
+    if not isinstance(cache, dict):
+        raise TypeError(f"Cache at {fp} could not be deserialized to dictionary")
+    return cache
+
+
 def memoize(stub: Optional[str] = None,
             cache_dir: Optional[str] = '/tmp/memoize',
             ext: str = 'json',
             log_func: Callable = print,
-            ignore_invalid: bool = True) -> Callable:
+            ignore_invalid: bool = True,
+            cache_lifetime_days: int = None) -> Callable:
+    """
+    Cache results of this function to the file `{cache_dir}/{funcname}_{stub}.{ext}`.
+    Read cache entries up to `cache_lifetime_days` days ago if specified; setting
+    to None will read from the most recent cache entry.
+    """
     # Ensure that cache exists
     if os.path.exists(cache_dir):
         if not os.path.isdir(cache_dir):
@@ -39,26 +94,27 @@ def memoize(stub: Optional[str] = None,
     def add_memoize_dec(func):
         funcname = _clean_func_name(func.__name__)
         fp = os.path.join(cache_dir, f"{funcname}_{stub}.{ext}")
-        log_func(f"Using cache {fp=} for function {funcname}")
+        fp_glob = os.path.join(cache_dir, f"{funcname}_*.{ext}")
+        log_func(f"Using cache {fp=} to write results of function {funcname}")
+
         @wraps(func)
         def memoize_dec(*args, **kwargs):
+            hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
             cache = dict()
             key = _make_key(func.__name__, args, kwargs)
             # Check for a cached result
-            if os.path.isfile(fp) and not kwargs.get('_memoize_force_refresh'):
-                with open(fp, 'rb') as f:
-                    try:
-                        cache = json.load(f)
-                    except json.decoder.JSONDecodeError as err:
-                        if ignore_invalid:
-                            cache = dict()
-                        else:
-                            raise
-                if not isinstance(cache, dict):
-                    raise TypeError(f"Cache at {fp=} could not be deserialized to dictionary")
-                if key in cache:
-                    log_func(f"Using cached call with {key=}")
-                    return cache[key]
+            if not kwargs.get('_memoize_force_refresh'):
+                for hist_fp in hist_fps:
+                    cache.update(_read_cache(hist_fp))
+                    if key in cache:
+                        log_func(f"Using cached call from {hist_fp} with {key=}")
+                        if hist_fp != fp:
+                            # Copy the entire cache from historical entry
+                            # to today if necessary
+                            with open(fp, 'w') as f:
+                                text = json.dumps(cache)
+                                f.write(text)
+                        return cache[key]
             
             # Else run the function and store cached result
             result = func(*args, **kwargs)
