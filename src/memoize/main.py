@@ -125,4 +125,3 @@ def memoize(stub: Optional[str] = None,
             return result
         return memoize_dec
     return add_memoize_dec
-
