@@ -51,8 +51,8 @@ def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
     """
     Globs for files in `query` that are <= `cache_lifetime_days` old.
     Returns list of paths sorted in order of most recent to least recent.
-    Passing None for `cache_lifetime_days` will use any cache entry regardless
-    of timestamp.
+    Passing None for `cache_lifetime_days` will return all cache entry
+    regardless of timestamp.
     """
     if cache_lifetime_days is None:
         cache_lifetime_days = -1
@@ -105,19 +105,22 @@ def _create_cache(cache_dir: str):
         os.makedirs(cache_dir)
 
 
-def memoize(stub: Optional[str] = None,
-            cache_dir: Optional[str] = '/tmp/memoize',
-            ext: str = 'json',
-            log_func: Callable = print,
-            hash_args: bool = True,
-            ignore_invalid: bool = True,
-            cache_lifetime_days: int = 0) -> Callable:
+def memoize(
+    stub: Optional[str] = None,
+    cache_dir: Optional[str] = '/tmp/memoize',
+    ext: str = 'json',
+    log_func: Callable = print,
+    hash_args: bool = True,
+    ignore_invalid: bool = True,
+    cache_lifetime_days: int = 0
+) -> Callable:
     """
     Cache results of this function to the file `{cache_dir}/{funcname}_{stub}.{ext}`.
-    Read cache entries up to `cache_lifetime_days` days ago if specified; setting
-    to None will read from the most recent cache entry.
+    Read cache entries up to `cache_lifetime_days` days ago if specified.
+    Setting to None will read from the most recent cache entry.
+    Setting to 0 will read from only cache entries created today.
     Passing `_memoize_force_refresh` as a keyword argument of the wrapped
-    function will run the function ignoring the cache.
+    function will run the function, ignoring the cache.
     """
     # Ensure that cache exists
     _create_cache(cache_dir)
