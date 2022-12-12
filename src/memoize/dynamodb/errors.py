@@ -1,0 +1,2 @@
+class DDBCacherKeyNotFound(Exception):
+    pass

@@ -8,6 +8,8 @@ from datetime import date, datetime, timedelta
 from typing import List, Dict, Optional, Callable
 from functools import wraps
 
+from .dynamodb import ddb_cacher, DDBCacherKeyNotFound
+
 
 def _make_key(*args, how: str = 'hash', **kw) -> str:
     if how == 'hash':
@@ -134,13 +136,14 @@ def memoize(
 
         @wraps(func)
         def memoize_dec(*args, **kwargs):
-            hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
-            cache = dict()
             key = _make_key(
                 func.__name__, args, kwargs,
                 how='hash' if hash_args else 'ascii'
             )
-            # Check for a cached result
+
+            # Check for a cached result on disk
+            cache = dict()
+            hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
             if not kwargs.get('_memoize_force_refresh'):
                 for hist_fp in hist_fps:
                     cache.update(_read_cache(hist_fp, ignore_invalid))
@@ -152,6 +155,13 @@ def memoize(
                             with open(fp, 'w') as f:
                                 f.write(json.dumps(cache))
                         return cache[key]
+
+            # Query DDB for key with KeyConditionExpression on date range key
+            if cache_dir.startswith('ddb://'):
+                try:
+                    return ddb_cacher.find_key(key, cache_lifetime_days)
+                except DDBCacherKeyNotFound:
+                    pass
 
             # Else run the function and store cached result
             result = func(*args, **kwargs)
