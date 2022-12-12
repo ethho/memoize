@@ -28,6 +28,8 @@ def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
     """
     Globs for files in `query` that are <= `cache_lifetime_days` old.
     Returns list of paths sorted in order of most recent to least recent.
+    Passing None for `cache_lifetime_days` will use any cache entry regardless
+    of timestamp.
     """
     if cache_lifetime_days is None:
         cache_lifetime_days = -1
@@ -45,7 +47,7 @@ def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
         except Exception as err:
             raise
         dt_grps.append(item)
-    
+
     fps = [
         file['fp'] for file in
         # Sort filepaths starting with most recent
@@ -72,6 +74,14 @@ def _read_cache(fp: str, ignore_invalid: bool = True):
     return cache
 
 
+def _create_cache(cache_dir: str):
+    if os.path.exists(cache_dir):
+        if not os.path.isdir(cache_dir):
+            raise Exception(f'{cache_dir=} exists but is not a directory')
+    else:
+        os.makedirs(cache_dir)
+
+
 def memoize(stub: Optional[str] = None,
             cache_dir: Optional[str] = '/tmp/memoize',
             ext: str = 'json',
@@ -82,14 +92,12 @@ def memoize(stub: Optional[str] = None,
     Cache results of this function to the file `{cache_dir}/{funcname}_{stub}.{ext}`.
     Read cache entries up to `cache_lifetime_days` days ago if specified; setting
     to None will read from the most recent cache entry.
+    Passing `_memoize_force_refresh` as a keyword argument of the wrapped
+    function will run the function ignoring the cache.
     """
     # Ensure that cache exists
-    if os.path.exists(cache_dir):
-        if not os.path.isdir(cache_dir):
-            raise Exception(f'{cache_dir=} exists but is not a directory')
-    else:
-        os.makedirs(cache_dir)
-    stub = stub if stub else date.today().strftime('%Y%m%d') 
+    _create_cache(cache_dir)
+    stub = stub if stub else date.today().strftime('%Y%m%d')
 
     def add_memoize_dec(func):
         funcname = _clean_func_name(func.__name__)
@@ -105,23 +113,21 @@ def memoize(stub: Optional[str] = None,
             # Check for a cached result
             if not kwargs.get('_memoize_force_refresh'):
                 for hist_fp in hist_fps:
-                    cache.update(_read_cache(hist_fp))
+                    cache.update(_read_cache(hist_fp, ignore_invalid))
                     if key in cache:
                         log_func(f"Using cached call from {hist_fp} with {key=}")
                         if hist_fp != fp:
                             # Copy the entire cache from historical entry
                             # to today if necessary
                             with open(fp, 'w') as f:
-                                text = json.dumps(cache)
-                                f.write(text)
+                                f.write(json.dumps(cache))
                         return cache[key]
-            
+
             # Else run the function and store cached result
             result = func(*args, **kwargs)
             cache[key] = result
             with open(fp, 'w') as f:
-                text = json.dumps(cache)
-                f.write(text)
+                f.write(json.dumps(cache))
             return result
         return memoize_dec
     return add_memoize_dec
