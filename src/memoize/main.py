@@ -9,8 +9,31 @@ from typing import List, Dict, Optional, Callable
 from functools import wraps
 
 
-def _make_key(func_name: str, args: List, kwargs: Dict) -> str:
-    """Return SHA-256 hash of JSON stringified args, kwargs, and function name.
+def _make_key(*args, how: str = 'hash', **kw) -> str:
+    if how == 'hash':
+        return _make_key_hash(*args, **kw)
+    elif how == 'ascii':
+        return _make_key_ascii(*args, **kw)
+    else:
+        raise Exception(f"Key creation mode '{how}' is not supported.")
+
+
+def _make_key_ascii(func_name: str, args: List, kwargs: Dict) -> str:
+    """
+    Make key from stringified args, kwargs, and function name.
+    """
+    d = kwargs.copy()
+    if d or len(args) > 1:
+        raise Exception(
+            f"To use key creation mode 'ascii', must pass only one JSON-safe "
+            f"argument and no keyword arguments to function {func_name}."
+        )
+    return f"{func_name}#{args[0]}"
+
+
+def _make_key_hash(func_name: str, args: List, kwargs: Dict) -> str:
+    """
+    Return SHA-256 hash of JSON stringified args, kwargs, and function name.
     """
     d = kwargs.copy()
     # d['_func_name'] = func_name
@@ -86,6 +109,7 @@ def memoize(stub: Optional[str] = None,
             cache_dir: Optional[str] = '/tmp/memoize',
             ext: str = 'json',
             log_func: Callable = print,
+            hash_args: bool = True,
             ignore_invalid: bool = True,
             cache_lifetime_days: int = 0) -> Callable:
     """
@@ -109,7 +133,10 @@ def memoize(stub: Optional[str] = None,
         def memoize_dec(*args, **kwargs):
             hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
             cache = dict()
-            key = _make_key(func.__name__, args, kwargs)
+            key = _make_key(
+                func.__name__, args, kwargs,
+                how='hash' if hash_args else 'ascii'
+            )
             # Check for a cached result
             if not kwargs.get('_memoize_force_refresh'):
                 for hist_fp in hist_fps:
