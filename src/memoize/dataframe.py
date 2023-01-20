@@ -64,6 +64,12 @@ def memoize_df(
 
             # Else run the function and store cached result
             result = func(*args, **kwargs)
+
+            if not isinstance(result, pd.DataFrame):
+                raise Exception(
+                    f"Failed to write return value of function '{funcname}' to CSV file. "
+                    f"Expected a pandas.DataFrame, received {type(result)}."
+                )
             _write_csv(fp, result)
             return result
         return memoize_dec
