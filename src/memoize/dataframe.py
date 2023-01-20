@@ -12,7 +12,7 @@ except ImportError:
         f'pip install --install-option="--extras-require=dataframe" git+https://github.com/ethho/memoize.git'
     )
 
-from .main import _clean_func_name, _get_hist_fps
+from .main import _clean_func_name, _get_hist_fps, _make_key
 
 
 def _read_csv(fp: str) -> pd.DataFrame:
@@ -50,12 +50,13 @@ def memoize_df(
 
     def add_memoize_dec(func):
         funcname = _clean_func_name(func.__name__)
-        fp = os.path.join(cache_dir, f"{funcname}_{stub}.{ext}")
-        fp_glob = os.path.join(cache_dir, f"{funcname}_*.{ext}")
-        log_func(f"Using cache {fp=} to write results of function {funcname}")
 
         @wraps(func)
         def memoize_dec(*args, **kwargs):
+            key = _make_key(func.__name__, args, kwargs, maxlen=7)
+            fp = os.path.join(cache_dir, f"{funcname}_{key}_{stub}.{ext}")
+            log_func(f"Using cache {fp=} to write results of function {funcname}")
+            fp_glob = os.path.join(cache_dir, f"{funcname}_{key}_*.{ext}")
             hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
             if not kwargs.get('_memoize_force_refresh'):
                 for hist_fp in hist_fps:

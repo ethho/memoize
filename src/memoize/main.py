@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Callable
 from functools import wraps
 
 
-def _make_key(func_name: str, args: List, kwargs: Dict) -> str:
+def _make_key(func_name: str, args: List, kwargs: Dict, maxlen: int = None) -> str:
     """Return SHA-256 hash of JSON stringified args, kwargs, and function name.
     """
     d = kwargs.copy()
@@ -17,7 +17,10 @@ def _make_key(func_name: str, args: List, kwargs: Dict) -> str:
     d['_args'] = args
     hl = hashlib.new('sha256')
     hl.update(json.dumps(d, sort_keys=True).encode()) 
-    return hl.hexdigest()
+    as_str = hl.hexdigest()
+    if maxlen:
+        as_str = as_str[:maxlen]
+    return as_str
 
 
 def _clean_func_name(fname: str) -> str:

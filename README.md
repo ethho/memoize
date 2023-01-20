@@ -37,7 +37,7 @@ python3 -m pip install pandas
 ```
 
 The `memoize_df` decorator factory can be used for any function that returns a `pandas.DataFrame`.
-While `memoize` stores the results of many calls in one cache file, `memoize_df` stores the DataFrame produced for exactly one call in the cache file.
+While `memoize` stores the results of many calls in one cache file, `memoize_df` writes a separate cache file for each unique call.
 Also note that DataFrame index will be written to the CSV cache _if and only if_ the index has a non-null `name` attribute.
 
 ```python
@@ -53,7 +53,7 @@ def make_dataframe(foo: int):
 
 
 print(make_dataframe(4))
-# Using cache fp='/tmp/memoize/make_dataframe_20230120.csv' to write results of function make_dataframe
+# Using cache fp='/tmp/memoize/make_dataframe_44566a0_20230120.csv' to write results of function make_dataframe
 #           my_column
 # my_index
 # 0                 3
@@ -62,15 +62,16 @@ print(make_dataframe(4))
 # 3                 0
 
 print(make_dataframe(3))
-# Using cached call from /tmp/memoize/make_dataframe_20230120.csv
-#    my_index  my_column
-# 0         0          3
-# 1         1          2
-# 2         2          1
-# 3         3          0
+# Using cache fp='/tmp/memoize/make_dataframe_3c15101_20230120.csv' to write results of function make_dataframe
+#           my_column
+# my_index
+# 0                 2
+# 1                 1
+# 2                 0
 
 print(make_dataframe(4))
-# Using cached call from /tmp/memoize/make_dataframe_20230120.csv
+# Using cache fp='/tmp/memoize/make_dataframe_44566a0_20230120.csv' to write results of function make_dataframe
+# Using cached call from /tmp/memoize/make_dataframe_44566a0_20230120.csv
 #    my_index  my_column
 # 0         0          3
 # 1         1          2
