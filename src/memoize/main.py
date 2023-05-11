@@ -16,7 +16,7 @@ def _make_key(func_name: str, args: List, kwargs: Dict, maxlen: int = None) -> s
     d['_func_name'] = func_name
     d['_args'] = args
     hl = hashlib.new('sha256')
-    hl.update(json.dumps(d, sort_keys=True).encode()) 
+    hl.update(json.dumps(d, sort_keys=True).encode())
     as_str = hl.hexdigest()
     if maxlen:
         as_str = as_str[:maxlen]
@@ -48,7 +48,7 @@ def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
         except Exception as err:
             raise
         dt_grps.append(item)
-    
+
     fps = [
         file['fp'] for file in
         # Sort filepaths starting with most recent
@@ -92,7 +92,7 @@ def memoize(stub: Optional[str] = None,
             raise Exception(f'{cache_dir=} exists but is not a directory')
     else:
         os.makedirs(cache_dir)
-    stub = stub if stub else date.today().strftime('%Y%m%d') 
+    stub = stub if stub else date.today().strftime('%Y%m%d')
 
     def add_memoize_dec(func):
         funcname = _clean_func_name(func.__name__)
@@ -118,7 +118,7 @@ def memoize(stub: Optional[str] = None,
                                 text = json.dumps(cache)
                                 f.write(text)
                         return cache[key]
-            
+
             # Else run the function and store cached result
             result = func(*args, **kwargs)
             cache[key] = result
