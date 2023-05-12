@@ -29,6 +29,9 @@ def _write(ext: str, fp: str, df: pd.DataFrame):
         write_index = bool(df.index.name)
         return df.to_csv(fp, index=write_index)
     elif ext == 'parquet':
+        if not pd.api.types.is_object_dtype(df.columns.dtype):
+            print(f"WARNING: Converting column names to string dtype")
+            df.columns = df.columns.astype(str)
         return df.to_parquet(fp)
     else:
         raise Exception(f"Unsupported file extension {ext}")
