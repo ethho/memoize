@@ -14,16 +14,27 @@ except ImportError:
 
 from .main import _clean_func_name, _get_hist_fps, _make_key
 
-
-def _read_csv(fp: str) -> pd.DataFrame:
+def _read(ext: str, fp: str) -> pd.DataFrame:
     """Reads DataFrame from CSV file at `fp`."""
-    return pd.read_csv(fp)
+    if ext == 'csv':
+        return pd.read_csv(fp)
+    elif ext == 'parquet':
+        return pd.read_parquet(fp)
+    else:
+        raise Exception(f"Unsupported file extension {ext}")
 
 
-def _write_csv(fp: str, df: pd.DataFrame):
-    """Write DataFrame to CSV file at `fp` from DataFrame `df`."""
-    write_index = bool(df.index.name)
-    return df.to_csv(fp, index=write_index)
+def _write(ext: str, fp: str, df: pd.DataFrame):
+    if ext == 'csv':
+        write_index = bool(df.index.name)
+        return df.to_csv(fp, index=write_index)
+    elif ext == 'parquet':
+        if not pd.api.types.is_object_dtype(df.columns.dtype):
+            print(f"WARNING: Converting column names to string dtype")
+            df.columns = df.columns.astype(str)
+        return df.to_parquet(fp)
+    else:
+        raise Exception(f"Unsupported file extension {ext}")
 
 
 def memoize_df(
@@ -31,7 +42,6 @@ def memoize_df(
     cache_dir: Optional[str] = '/tmp/memoize',
     ext: str = 'csv',
     log_func: Callable = print,
-    ignore_invalid: bool = True,
     cache_lifetime_days: int = 0
 ) -> Callable:
     """
@@ -61,7 +71,7 @@ def memoize_df(
             if not kwargs.get('_memoize_force_refresh'):
                 for hist_fp in hist_fps:
                     log_func(f"Using cached call from {hist_fp}")
-                    return _read_csv(hist_fp)
+                    return _read(ext, hist_fp)
 
             # Else run the function and store cached result
             result = func(*args, **kwargs)
@@ -71,7 +81,7 @@ def memoize_df(
                     f"Failed to write return value of function '{funcname}' to CSV file. "
                     f"Expected a pandas.DataFrame, received {type(result)}."
                 )
-            _write_csv(fp, result)
+            _write(ext, fp, result)
             return result
         return memoize_dec
     return add_memoize_dec

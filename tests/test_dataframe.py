@@ -10,8 +10,9 @@ def example_func(foo: int):
     return df
 
 
-def test_memoize():
-    wrapped = memoize_df(cache_lifetime_days=None)(example_func)
+@pytest.mark.parametrize('ext', ['csv', 'parquet'])
+def test_memoize(ext):
+    wrapped = memoize_df(cache_lifetime_days=None, ext=ext)(example_func)
     print(wrapped(2))
     print(wrapped(3))
     print(wrapped(5))
