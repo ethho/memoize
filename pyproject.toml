@@ -2,7 +2,7 @@
 name = "memoize"
 version = "0.3.0"
 description = "Python3 memoization decorator"
-authors = ["Ethan Ho <ethan.n.ho@gmail.com>"]
+authors = ["Ethan Ho <53266718+ethho@users.noreply.github.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
