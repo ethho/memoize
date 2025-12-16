@@ -1,10 +1,13 @@
 import os
 import json
-import asyncio
 from datetime import date
 from typing import List, Optional, Callable
 from functools import wraps
 from .utils import _clean_func_name, _get_hist_fps, _make_key, _create_cache_dir, _write_dict_to_file
+try:
+    import asyncio
+except ImportError:
+    pass
 
 
 def _read_cache(fp: str, ignore_invalid: bool = True):
@@ -44,32 +47,14 @@ def memoize(
         fp_glob = os.path.join(cache_dir, f"{funcname}_*.{ext}")
         log_func(f"Using cache {fp=} to write results of function {funcname}")
 
-        # Check if the function is async
-        if asyncio.iscoroutinefunction(func):
-            @wraps(func)
-            async def async_memoize_dec(*args, **kwargs):
-                cache = dict()
-                key = _make_key(func.__name__, args, kwargs)
-                # Check for a cached result
-                if not kwargs.get('_memoize_force_refresh'):
-                    hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
-                    for hist_fp in hist_fps:
-                        cache.update(_read_cache(hist_fp))
-                        if key in cache:
-                            log_func(f"Using cached call from {hist_fp} with {key=}")
-                            if hist_fp != fp:
-                                # Copy the entire cache from historical entry
-                                # to today if necessary
-                                _write_dict_to_file(fp, cache)
-                            return cache[key]
+        # Check if the function is async and asyncio is available
+        try:
+            use_async: bool = asyncio.iscoroutinefunction(func)
+        except NameError:
+            log_func("asyncio not available; assuming synchronous function")
+            use_async = False
 
-                # Else run the function and store cached result
-                result = await func(*args, **kwargs)
-                cache[key] = result
-                _write_dict_to_file(fp, cache)
-                return result
-            return async_memoize_dec
-        else:
+        if not use_async:
             @wraps(func)
             def memoize_dec(*args, **kwargs):
                 cache = dict()
@@ -93,5 +78,31 @@ def memoize(
                 _write_dict_to_file(fp, cache)
                 return result
             return memoize_dec
+        else:
+            # Same function as memoize_dec except for the await
+
+            @wraps(func)
+            async def async_memoize_dec(*args, **kwargs):
+                cache = dict()
+                key = _make_key(func.__name__, args, kwargs)
+                # Check for a cached result
+                if not kwargs.get('_memoize_force_refresh'):
+                    hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
+                    for hist_fp in hist_fps:
+                        cache.update(_read_cache(hist_fp))
+                        if key in cache:
+                            log_func(f"Using cached call from {hist_fp} with {key=}")
+                            if hist_fp != fp:
+                                # Copy the entire cache from historical entry
+                                # to today if necessary
+                                _write_dict_to_file(fp, cache)
+                            return cache[key]
+
+                # Else run the function and store cached result
+                result = await func(*args, **kwargs)
+                cache[key] = result
+                _write_dict_to_file(fp, cache)
+                return result
+            return async_memoize_dec
     return add_memoize_dec
 
