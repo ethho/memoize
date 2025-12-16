@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from datetime import date
 from typing import List, Optional, Callable
 from functools import wraps
@@ -60,14 +61,14 @@ def memoize_df(
             @wraps(func)
             def memoize_dec(*args, **kwargs):
                 key = _make_key(func.__name__, args, kwargs, maxlen=7)
-                fp = os.path.join(cache_dir, f"{funcname}_{key}_{stub}.{ext}")
+                fp = Path(cache_dir) / f"{funcname}_{key}_{stub}.{ext}"
                 log_func(f"Using cache {fp=} to write results of function {funcname}")
-                fp_glob = os.path.join(cache_dir, f"{funcname}_{key}_*.{ext}")
+                fp_pattern = f"{funcname}_{key}_*.{ext}"
                 if not kwargs.get('_memoize_force_refresh'):
-                    hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
+                    hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         log_func(f"Using cached call from {hist_fp}")
-                        return _read(ext, hist_fp)
+                        return _read(ext, str(hist_fp))
 
                 # Else run the function and store cached result
                 result = func(*args, **kwargs)
@@ -77,7 +78,7 @@ def memoize_df(
                         f"Failed to write return value of function '{funcname}' to CSV file. "
                         f"Expected a pandas.DataFrame, received {type(result)}."
                     )
-                _write(ext, fp, result)
+                _write(ext, str(fp), result)
                 return result
             return memoize_dec
         else:
@@ -86,14 +87,14 @@ def memoize_df(
             @wraps(func)
             async def async_memoize_dec(*args, **kwargs):
                 key = _make_key(func.__name__, args, kwargs, maxlen=7)
-                fp = os.path.join(cache_dir, f"{funcname}_{key}_{stub}.{ext}")
+                fp = Path(cache_dir) / f"{funcname}_{key}_{stub}.{ext}"
                 log_func(f"Using cache {fp=} to write results of function {funcname}")
-                fp_glob = os.path.join(cache_dir, f"{funcname}_{key}_*.{ext}")
+                fp_pattern = f"{funcname}_{key}_*.{ext}"
                 if not kwargs.get('_memoize_force_refresh'):
-                    hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
+                    hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         log_func(f"Using cached call from {hist_fp}")
-                        return _read(ext, hist_fp)
+                        return _read(ext, str(hist_fp))
 
                 # Else run the function and store cached result
                 result = await func(*args, **kwargs)
@@ -103,7 +104,7 @@ def memoize_df(
                         f"Failed to write return value of function '{funcname}' to CSV file. "
                         f"Expected a pandas.DataFrame, received {type(result)}."
                     )
-                _write(ext, fp, result)
+                _write(ext, str(fp), result)
                 return result
             return async_memoize_dec
     return add_memoize_dec

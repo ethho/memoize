@@ -1,6 +1,7 @@
 import os
 import json
 import re
+from pathlib import Path
 from glob import glob
 import hashlib
 from datetime import date, datetime, timedelta
@@ -38,17 +39,19 @@ def _clean_func_name(fname: str) -> str:
     return re.sub(r'[^a-zA-Z0-9_\-]', '', fname)
 
 
-def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
+def _get_hist_fps(cache_dir: Path, pattern: str, cache_lifetime_days: int = None) -> List[Path]:
     """
-    Globs for files in `query` that are <= `cache_lifetime_days` old.
-    Returns list of paths sorted in order of most recent to least recent.
+    Globs for files matching pattern in cache_dir that are <= cache_lifetime_days old.
+    Returns list of Path objects sorted in order of most recent to least recent.
     """
     if cache_lifetime_days is None:
         cache_lifetime_days = -1
-    re_query = query.replace('*', '(\d{8})')
+
+    re_query = re.compile(pattern.replace('*', r'(\d{8})'))
     dt_grps = list()
-    for glob_match in glob(query):
-        match = re.match(re_query, glob_match)
+
+    for glob_match in cache_dir.glob(pattern):
+        match = re.match(re_query, glob_match.name)
         if not match:
             continue
         try:
@@ -62,9 +65,7 @@ def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
 
     fps = [
         file['fp'] for file in
-        # Sort filepaths starting with most recent
         sorted(dt_grps, key=(lambda x: x['dt']), reverse=True)
-        # Only include files timestamped less than cache_lifetime_days ago
         if ((date.today() - file['dt']) <= timedelta(days=cache_lifetime_days)
             or cache_lifetime_days < 0)
     ]
