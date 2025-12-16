@@ -3,12 +3,7 @@ import json
 from datetime import date
 from typing import List, Optional, Callable
 from functools import wraps
-from .utils import _clean_func_name, _get_hist_fps, _make_key, _create_cache_dir, _write_dict_to_file
-try:
-    import asyncio
-except ImportError:
-    pass
-
+from .utils import _clean_func_name, _get_hist_fps, _make_key, _create_cache_dir, _write_dict_to_file, _use_async
 
 def _read_cache(fp: str, ignore_invalid: bool = True):
     cache = dict()
@@ -47,14 +42,7 @@ def memoize(
         fp_glob = os.path.join(cache_dir, f"{funcname}_*.{ext}")
         log_func(f"Using cache {fp=} to write results of function {funcname}")
 
-        # Check if the function is async and asyncio is available
-        try:
-            use_async: bool = asyncio.iscoroutinefunction(func)
-        except NameError:
-            log_func("asyncio not available; assuming synchronous function")
-            use_async = False
-
-        if not use_async:
+        if not _use_async(func, log_func):
             @wraps(func)
             def memoize_dec(*args, **kwargs):
                 cache = dict()

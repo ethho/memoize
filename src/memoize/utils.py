@@ -4,8 +4,7 @@ import re
 from glob import glob
 import hashlib
 from datetime import date, datetime, timedelta
-from typing import List, Dict
-
+from typing import List, Dict, Callable
 
 def _write_dict_to_file(fp: str, d: Dict):
     with open(fp, 'w') as f:
@@ -70,3 +69,13 @@ def _get_hist_fps(query: str, cache_lifetime_days: int = None) -> List[str]:
             or cache_lifetime_days < 0)
     ]
     return fps
+
+
+def _use_async(func, log_func: Callable = print) -> bool:
+	"""Check if the function is async and asyncio is available"""
+	try:
+		import asyncio
+		return asyncio.iscoroutinefunction(func)
+	except (ImportError, NameError):
+		log_func("asyncio not available; assuming synchronous function")
+	return False
