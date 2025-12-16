@@ -12,7 +12,7 @@ except ImportError:
         f'pip install --install-option="--extras-require=dataframe" git+https://github.com/ethho/memoize.git'
     )
 
-from .main import _clean_func_name, _get_hist_fps, _make_key
+from .utils import _clean_func_name, _get_hist_fps, _make_key, _create_cache_dir, _write_dict_to_file
 
 def _read(ext: str, fp: str) -> pd.DataFrame:
     """Reads DataFrame from CSV file at `fp`."""
@@ -51,11 +51,7 @@ def memoize_df(
     to None will read from the most recent cache entry.
     """
     # Ensure that cache exists
-    if os.path.exists(cache_dir):
-        if not os.path.isdir(cache_dir):
-            raise Exception(f'{cache_dir=} exists but is not a directory')
-    else:
-        os.makedirs(cache_dir)
+    _create_cache_dir(cache_dir)
     stub = stub if stub else date.today().strftime('%Y%m%d')
 
     def add_memoize_dec(func):
@@ -67,8 +63,8 @@ def memoize_df(
             fp = os.path.join(cache_dir, f"{funcname}_{key}_{stub}.{ext}")
             log_func(f"Using cache {fp=} to write results of function {funcname}")
             fp_glob = os.path.join(cache_dir, f"{funcname}_{key}_*.{ext}")
-            hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
             if not kwargs.get('_memoize_force_refresh'):
+                hist_fps: List[str] = _get_hist_fps(fp_glob, cache_lifetime_days)
                 for hist_fp in hist_fps:
                     log_func(f"Using cached call from {hist_fp}")
                     return _read(ext, hist_fp)
