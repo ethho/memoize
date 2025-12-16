@@ -1,15 +1,7 @@
-import pytest
 import os
 import json
-import tempfile
 from memoize import memoize
 
-
-@pytest.fixture
-def temp_cache_dir():
-	"""Fixture that provides a temporary cache directory."""
-	with tempfile.TemporaryDirectory() as tmpdir:
-		yield tmpdir
 
 
 def test_memoize_basic_caching(temp_cache_dir):
