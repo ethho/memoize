@@ -21,8 +21,7 @@ from functools import lru_cache
 # All are optional kwargs
 @memoize(stub='my_cache',               # file stub override
          cache_dir='/tmp/my_cache_dir', # cache directory override
-         log_func=logger.info           # logging function override, print by default
-         ignore_invalid=True)           # ignore cache if not JSON serializable
+         log_func=logger.info)          # logging function override, print by default
 def my_func(s: str, b: bool = True, opt=None):
     return {"s": s, "b": b, "opt": opt}
 ```
@@ -87,4 +86,4 @@ MIT
 
 Args, kwargs, and function return value must be JSON-serializable if using the `memoize` decorator.
 The return value of the wrapped function must be a `pandas.DataFrame` when using the `memoize_df` decorator.
-The entire contents of the date-stamped cache file will be read and written on every function call, which may post I/O challenges.
+The entire contents of the date-stamped cache file will be read and written on every function call, which may pose I/O challenges.
