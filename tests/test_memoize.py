@@ -3,7 +3,6 @@ import json
 from memoize import memoize
 
 
-
 def test_memoize_basic_caching(temp_cache_dir):
 	"""Test that memoize stores and retrieves cached results."""
 	call_count = 0
@@ -198,4 +197,3 @@ def test_memoize_with_multiple_args(temp_cache_dir):
 	result3 = wrapped(1, 2, 4)
 	assert result3 == 7
 	assert call_count == 2  # Different args
-
