@@ -80,7 +80,7 @@ def memoize_df(
                 fp = Path(cache_dir) / f"{funcname}_{key}_{stub}.{ext}"
                 log_func(f"Using cache {fp=} to write results of function {funcname}")
                 fp_pattern = f"{funcname}_{key}_*.{ext}"
-                if not kwargs.get(force_refresh_kwarg):
+                if not kwargs.pop(force_refresh_kwarg, False):
                     hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         log_func(f"Using cached call from {hist_fp}")
@@ -106,7 +106,7 @@ def memoize_df(
                 fp = Path(cache_dir) / f"{funcname}_{key}_{stub}.{ext}"
                 log_func(f"Using cache {fp=} to write results of function {funcname}")
                 fp_pattern = f"{funcname}_{key}_*.{ext}"
-                if not kwargs.get(force_refresh_kwarg):
+                if not kwargs.pop(force_refresh_kwarg, False):
                     hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         log_func(f"Using cached call from {hist_fp}")
