@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from datetime import date
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Dict
 from functools import wraps
 try:
     import pandas as pd
@@ -13,26 +13,39 @@ except ImportError:
     )
 
 from .utils import _clean_func_name, _get_hist_fps, _make_key, _create_cache_dir, _use_async
+from .encoders import Encoders, EncoderKwargs
 
-def _read(ext: str, fp: str) -> pd.DataFrame:
+def _decode(df: pd.DataFrame, encoders: Encoders) -> pd.DataFrame:
+    """Decodes a DataFrame using the provided encoders."""
+    for col in df.columns:
+        df[col] = df[col].apply(encoders.decode_value, args=(col,))
+    return df
+
+def _encode(df: pd.DataFrame, encoders: Encoders) -> pd.DataFrame:
+    """Encodes a DataFrame using the provided encoders. Returns a new DataFrame."""
+    df = df.copy()
+    for col in df.columns:
+        df[col] = df[col].apply(encoders.encode_value, args=(col,))
+    return df
+
+def _read(ext: str, fp: str, encoders: Encoders) -> pd.DataFrame:
     """Reads DataFrame from CSV file at `fp`."""
     if ext == 'csv':
-        return pd.read_csv(fp)
+        return _decode(pd.read_csv(fp), encoders)
     elif ext == 'parquet':
-        return pd.read_parquet(fp)
+        return _decode(pd.read_parquet(fp), encoders)
     else:
         raise Exception(f"Unsupported file extension {ext=}")
 
-
-def _write(ext: str, fp: str, df: pd.DataFrame):
+def _write(ext: str, fp: str, df: pd.DataFrame, encoders: Encoders):
     if ext == 'csv':
         write_index = bool(df.index.name)
-        return df.to_csv(fp, index=write_index)
+        return _encode(df, encoders).to_csv(fp, index=write_index)
     elif ext == 'parquet':
         if not pd.api.types.is_object_dtype(df.columns.dtype):
             print(f"WARNING: Converting column names to string dtype")
             df.columns = df.columns.astype(str)
-        return df.to_parquet(fp)
+        return _encode(df, encoders).to_parquet(fp)
     else:
         raise Exception(f"Unsupported file extension {ext=}")
 
@@ -42,7 +55,9 @@ def memoize_df(
     cache_dir: Optional[str] = '/tmp/memoize',
     ext: str = 'csv',
     log_func: Callable = print,
-    cache_lifetime_days: int = 0
+    cache_lifetime_days: int = 0,
+    force_refresh_kwarg: str = '_memoize_force_refresh',
+    encoders: Optional[EncoderKwargs] = None
 ) -> Callable:
     """
     Cache the DataFrame returned by this function to
@@ -53,6 +68,7 @@ def memoize_df(
     # Ensure that cache exists
     _create_cache_dir(cache_dir)
     stub = stub if stub else date.today().strftime('%Y%m%d')
+    encoders = Encoders(encoders)
 
     def add_memoize_dec(func):
         funcname = _clean_func_name(func.__name__)
@@ -64,11 +80,11 @@ def memoize_df(
                 fp = Path(cache_dir) / f"{funcname}_{key}_{stub}.{ext}"
                 log_func(f"Using cache {fp=} to write results of function {funcname}")
                 fp_pattern = f"{funcname}_{key}_*.{ext}"
-                if not kwargs.get('_memoize_force_refresh'):
+                if not kwargs.get(force_refresh_kwarg):
                     hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         log_func(f"Using cached call from {hist_fp}")
-                        return _read(ext, str(hist_fp))
+                        return _read(ext, str(hist_fp), encoders)
 
                 # Else run the function and store cached result
                 result = func(*args, **kwargs)
@@ -78,7 +94,7 @@ def memoize_df(
                         f"Failed to write return value of function '{funcname}' to CSV file. "
                         f"Expected a pandas.DataFrame, received {type(result)}."
                     )
-                _write(ext, str(fp), result)
+                _write(ext, str(fp), result, encoders)
                 return result
             return memoize_dec
         else:
@@ -90,11 +106,11 @@ def memoize_df(
                 fp = Path(cache_dir) / f"{funcname}_{key}_{stub}.{ext}"
                 log_func(f"Using cache {fp=} to write results of function {funcname}")
                 fp_pattern = f"{funcname}_{key}_*.{ext}"
-                if not kwargs.get('_memoize_force_refresh'):
+                if not kwargs.get(force_refresh_kwarg):
                     hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         log_func(f"Using cached call from {hist_fp}")
-                        return _read(ext, str(hist_fp))
+                        return _read(ext, str(hist_fp), encoders)
 
                 # Else run the function and store cached result
                 result = await func(*args, **kwargs)
@@ -104,7 +120,7 @@ def memoize_df(
                         f"Failed to write return value of function '{funcname}' to CSV file. "
                         f"Expected a pandas.DataFrame, received {type(result)}."
                     )
-                _write(ext, str(fp), result)
+                _write(ext, str(fp), result, encoders)
                 return result
             return async_memoize_dec
     return add_memoize_dec

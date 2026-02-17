@@ -26,7 +26,8 @@ def memoize(
     cache_dir: Optional[str] = '/tmp/memoize',
     ext: str = 'json',
     log_func: Callable = print,
-    cache_lifetime_days: int = 0
+    cache_lifetime_days: int = 0,
+    force_refresh_kwarg: str = '_memoize_force_refresh'
 ) -> Callable:
     """
     Cache results of this function to the file `{cache_dir}/{funcname}_{stub}.{ext}`.
@@ -49,7 +50,7 @@ def memoize(
                 cache = dict()
                 key = _make_key(func.__name__, args, kwargs)
                 # Check for a cached result
-                if not kwargs.get('_memoize_force_refresh'):
+                if not kwargs.get(force_refresh_kwarg):
                     hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         cache.update(_read_cache(str(hist_fp)))
@@ -75,7 +76,7 @@ def memoize(
                 cache = dict()
                 key = _make_key(func.__name__, args, kwargs)
                 # Check for a cached result
-                if not kwargs.get('_memoize_force_refresh'):
+                if not kwargs.get(force_refresh_kwarg):
                     hist_fps: List[Path] = _get_hist_fps(Path(cache_dir), fp_pattern, cache_lifetime_days)
                     for hist_fp in hist_fps:
                         cache.update(_read_cache(str(hist_fp)))
